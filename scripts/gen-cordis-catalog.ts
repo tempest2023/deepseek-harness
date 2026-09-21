@@ -119,6 +119,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   subprocess: 'subprocess.md',
   systemPrompt: 'system-prompt.md',
   jobs: 'jobs.md',
+  jev: 'jev.md',
   sessionTelemetry: 'session-telemetry.md',
   agentTeams: 'agent-team.md',
   tokenMeter: 'token-meter.md',
@@ -217,6 +218,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'domain': 'storage.md',
   'fs': 'filesystem.md',
   'goal': 'goal.md',
+  'jev': 'jev.md',
   'llm': 'llm-streaming.md',
   'permission-presets': 'permission-presets.md',
   'session': 'session.md',
@@ -261,6 +263,13 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  JevDecision: 'jev.md',
+  ModelRoutingRequest: 'jev.md',
+  ModelRoutingDecision: 'jev.md',
+  ToolFilterRequest: 'jev.md',
+  ToolFilterDecision: 'jev.md',
+  PermissionRequest: 'jev.md',
+  PermissionJudgment: 'jev.md',
   WorkspaceChangesSummary: 'deliverables.md',
   WorkspaceFileDiff: 'deliverables.md',
   Reload: 'boot.md',

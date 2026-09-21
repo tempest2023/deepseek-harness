@@ -1128,6 +1128,93 @@ export interface Config {
 
 来源：[`packages/runtime-diagnostics/invariants/src/index.ts:15`](../packages/runtime-diagnostics/invariants/src/index.ts)
 
+<a id="deepseek-aidsh-jev"></a>
+
+## `@deepseek-ai/dsh-jev`
+
+```ts config-catalog
+/**
+ * Plugin configuration. Every field is optional and validated at load;
+ * misconfiguration fails loud rather than silently degrading.
+ */
+export interface Config {
+  /** Master switch; `false` makes the plugin a no-op. */
+  enabled?: boolean
+  /** Which bounded-judgment backend answers decisions. */
+  provider?: string
+  /** Absolute HTTP(S) endpoint for the `remote` backend. */
+  remoteEndpoint?: string
+  /** Environment variable holding the backend credential, when it needs one. */
+  remoteApiKeyEnv?: string
+  /** Per-call deadline for the `remote` backend, in milliseconds. */
+  remoteTimeoutMs?: number
+  /** Enable model routing. */
+  modelRouterEnabled?: boolean
+  /** Model routing selects this provider for orchestration steps. */
+  orchestrationProvider?: string
+  /** Model routing selects this model for orchestration steps. */
+  orchestrationModel?: string
+  /** Model routing selects this provider for execution steps. */
+  executionProvider?: string
+  /** Model routing selects this model for execution steps. */
+  executionModel?: string
+  /** Tie-break direction when several available models satisfy a preference. */
+  routingBias?: RoutingBias
+  /** Natural-language model preferences. */
+  routingPreferences?: string
+  /** Literal substrings that disqualify a model from selection. */
+  routingAvoid?: string[]
+  /** Route main-agent steps after the first to the execution model. */
+  preferExecutionForRoutineSteps?: boolean
+  /** How long a discovered model catalog stays fresh, in milliseconds. */
+  modelDiscoveryTtlMs?: number
+  /** Enable tool pre-filtering. */
+  toolPrefilterEnabled?: boolean
+  /** Below this tool count, filtering is skipped entirely. */
+  prefilterMinTools?: number
+  /** Skip filtering when it would leave fewer than this many tools. */
+  prefilterMinRetained?: number
+  /** Skip filtering when it would remove more than this fraction of tools. */
+  prefilterMaxRemovalFraction?: number
+  /** Tool-name wildcard patterns that must always survive filtering. */
+  prefilterAlwaysKeep?: string[]
+  /** How many recent conversation messages describe the current task. */
+  toolFilterTaskMessages?: number
+  /** Enable permission judgment. */
+  permissionEnabled?: boolean
+  /** Autonomy profile used when no prose clause applies. */
+  permissionProfile?: PermissionProfile
+  /** Natural-language permission preferences. */
+  permissionPreferences?: string
+  /** Risk rules the profile thresholds are applied to. */
+  permissionRiskRules?: RiskRule[]
+}
+
+/** Tie-break direction when several available models satisfy a preference. */
+export type RoutingBias = 'quality' | 'cost' | 'latency'
+
+/** User-facing autonomy profile. */
+export type PermissionProfile = 'conservative' | 'balanced' | 'autonomous'
+
+/**
+ * One named, configurable risk rule: a subject area and the literal text
+ * patterns whose presence in a proposed action suggests that area is touched.
+ */
+export interface RiskRule {
+  /** Stable rule name, named in the judgment reason and decision event. */
+  name: string
+  /** Severity this rule assigns when it matches. */
+  level: RiskLevel
+  /** Case-insensitive literal substrings; matching is substring, never regex. */
+  patterns: string[]
+}
+
+/** Risk severity, ordered from least to most severe. */
+export type RiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical'
+```
+
+来源：[`packages/jev/jev/src/index.ts:120`](../packages/jev/jev/src/index.ts)
+
 <a id="deepseek-aidsh-jobs-local"></a>
 
 ## `@deepseek-ai/dsh-jobs-local`

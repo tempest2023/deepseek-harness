@@ -505,6 +505,11 @@
       "source": "packages/core/session/src/types.ts"
     },
     {
+      "doc": "docs/subsystems/jev.md",
+      "symbol": "JevDecision",
+      "source": "packages/jev/jev/src/observability.ts"
+    },
+    {
       "doc": "docs/subsystems/todo.md",
       "symbol": "TodoItem",
       "source": "packages/todo/tool-todo/src/types.ts"

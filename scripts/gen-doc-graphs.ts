@@ -472,6 +472,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Folds logged plan/mode state, flushes user selections at turn boundaries, renders deployment-owned guidance, registers /plan, and keeps the plan-exit schema stable across transitions.',
   },
   {
+    key: 'jev',
+    pkg: 'jev',
+    title: 'Bounded model, tool, and permission judgment',
+    mode: 'core',
+    note: 'Answers bounded routing, tool-relevance, and permission questions while the agent loop and tool pipeline retain orchestration and enforcement.',
+  },
+  {
     key: 'agentPresets',
     pkg: 'agent-presets',
     title: 'Per-session agent composition',
