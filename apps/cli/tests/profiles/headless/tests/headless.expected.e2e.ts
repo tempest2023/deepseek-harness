@@ -83,7 +83,7 @@ async function expectHeadlessStream(normalized: string, expectedPath: string): P
 }
 
 /** Serve one deterministic DeepSeek-compatible response while retaining its request body. */
-async function deepseekDefaultsServer(options: { waitForTitleRequest?: boolean; protocol?: 'messages' } = {}): Promise<DeepSeekDefaultsServer> {
+async function deepseekDefaultsServer(options: { keepAliveCount?: number; waitForTitleRequest?: boolean; protocol?: 'messages' } = {}): Promise<DeepSeekDefaultsServer> {
   const requests: JsonObject[] = []
   const paths: string[] = []
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
@@ -94,7 +94,7 @@ async function deepseekDefaultsServer(options: { waitForTitleRequest?: boolean; 
       requests.push(JSON.parse(body) as JsonObject)
       paths.push(request.url ?? '')
       response.writeHead(200, { 'content-type': 'text/event-stream' })
-      let keepAlives = 3
+      let keepAlives = options.keepAliveCount ?? 3
       const write = (): void => {
         // One-shot teardown may cancel background title work after the main response.
         if (keepAlives-- > 0
@@ -580,7 +580,11 @@ describe('headless stream-json snapshots', () => {
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
   it('keeps provider comments alive and sends DeepSeek defaults through the one-shot app', async () => {
-    const server = await deepseekDefaultsServer({ protocol: 'messages' })
+    const server = await deepseekDefaultsServer({
+      keepAliveCount: 40,
+      protocol: 'messages',
+      waitForTitleRequest: true,
+    })
     try {
       const result = await runLoaderSmoke({
         label: 'DeepSeek adapter defaults headless stream-json snapshot',

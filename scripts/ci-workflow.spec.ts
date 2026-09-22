@@ -190,6 +190,7 @@ describe('CI workflow', () => {
       expect(job['runs-on']).toContain('dsh-win-ci')
       expect(job['runs-on']).toContain('dsh-windows-2025-16core')
       expect(job['runs-on']).toContain('blacksmith-16vcpu-windows-2025')
+      expect(job['runs-on']).toContain("github.repository != 'deepseek-harness/deepseek-harness'")
       expect(job.if).toBe("github.event_name == 'pull_request'")
     }
 
@@ -230,9 +231,16 @@ describe('CI workflow', () => {
       expect(install!.run).not.toContain('$cloneFlag')
     }
 
-    // windows-coverage uses the lower 4-partition profile.
+    // Coverage keeps the canonical 16-core profile while forks reduce only
+    // scheduling parallelism for four-core GitHub-hosted runners.
     expect(windowsCoverage.name).toBe('windows node 24 / coverage')
-    expect(windowsCoverage.env).toMatchObject({ DSH_COVERAGE_PARTITIONS: '4' })
+    const forkCoverageProfile = {
+      DSH_COVERAGE_MAX_WORKERS: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '3' || '6' }}",
+      DSH_COVERAGE_PARTITIONS: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '2' || '4' }}",
+      DSH_GATE_CONCURRENCY: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '2' || '3' }}",
+    }
+    expect(node24Coverage.env).toMatchObject(forkCoverageProfile)
+    expect(windowsCoverage.env).toMatchObject(forkCoverageProfile)
     const coverageSteps = windowsCoverage.steps as unknown[]
     const coverageCommands = coverageSteps.filter((step): step is Record<string, unknown> & { run: string } => (
       isRecord(step) && typeof step.run === 'string'
@@ -330,11 +338,19 @@ describe('CI workflow', () => {
       expect(job['runs-on'], `${jobName} runs-on must not use the Windows failover switch`).not.toContain('DSH_CI_FAILOVER_WINDOWS')
       expect(job['runs-on']).toContain('vm-backup')
       expect(job['runs-on']).toContain('blacksmith-16vcpu-ubuntu-2404')
+      expect(job['runs-on']).toContain("github.repository != 'deepseek-harness/deepseek-harness'")
     }
     expect(aggregate['runs-on']).toContain('DSH_CI_FAILOVER_LINUX')
     expect(aggregate['runs-on']).not.toContain('DSH_CI_FAILOVER_WINDOWS')
     expect(aggregate['runs-on']).toContain('vm-backup')
     expect(aggregate['runs-on']).toContain('blacksmith-4vcpu-ubuntu-2404')
+    expect(node24Consumers.env).toMatchObject({
+      DSH_GATE_CONCURRENCY: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '3' || '10' }}",
+      DSH_OXLINT_THREADS: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '2' || '8' }}",
+      DSH_PUBLINT_CONCURRENCY: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '2' || '8' }}",
+      DSH_WEB_SNAPSHOT_WORKERS: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '2' || '6' }}",
+      DSH_SNAPSHOT_MAX_CONCURRENCY: "${{ github.repository != 'deepseek-harness/deepseek-harness' && '4' || vars.DSH_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '12' || '32' }}",
+    })
 
     // Evaluating the full selector, not just substring containment, proves the
     // blacksmith branch is standalone: it must not fall through to the
@@ -348,7 +364,10 @@ describe('CI workflow', () => {
       return evaluateRunsOn(expression, {
         vars,
         fromJSON: JSON.parse,
-        github: { event: { pull_request: { user: { login } } } },
+        github: {
+          repository: 'deepseek-harness/deepseek-harness',
+          event: { pull_request: { user: { login } } },
+        },
       })
     }
     for (const [name, selector, variable, pool, hosted] of [
@@ -365,6 +384,14 @@ describe('CI workflow', () => {
         expect(evaluate(selector, { [variable]: mode }), `${name} default on ${mode}`).toBe(hosted)
       }
     }
+    expect(evaluateRunsOn(selectors.linux, {
+      vars: {}, fromJSON: JSON.parse,
+      github: { repository: 'example/deepseek-harness', event: { pull_request: { user: { login: 'maintainer' } } } },
+    })).toBe('ubuntu-24.04')
+    expect(evaluateRunsOn(selectors.windows, {
+      vars: {}, fromJSON: JSON.parse,
+      github: { repository: 'example/deepseek-harness', event: { pull_request: { user: { login: 'maintainer' } } } },
+    })).toBe('windows-2025')
 
     // The run-gates aggregate lanes stop at the first blocking gate failure so
     // a red aggregate does not keep burning runner time on the remaining
@@ -935,7 +962,8 @@ describe('Weighted approval workflow', () => {
       'cancel-in-progress': false,
     })
     expect(job).toMatchObject({
-      if: "(github.event_name != 'pull_request_target' || github.event.pull_request.state == 'open') && "
+      if: "github.repository == 'deepseek-harness/deepseek-harness' && "
+        + "(github.event_name != 'pull_request_target' || github.event.pull_request.state == 'open') && "
         + "(github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && "
         + "(github.event_name != 'issue_comment' || (github.event.issue.pull_request && github.event.issue.state == 'open' &&\n"
         + "  (contains(github.event.comment.body, '/delegate') || contains(github.event.changes.body.from, '/delegate'))))",
@@ -979,7 +1007,7 @@ describe('Weighted approval workflow', () => {
       run: 'node .github/review-ownership/check-approval.mjs',
     })
     expect(recordJob).toMatchObject({
-      if: "github.event.pull_request.state == 'open'",
+      if: "github.repository == 'deepseek-harness/deepseek-harness' && github.event.pull_request.state == 'open'",
       name: 'record weighted approval review event',
       'runs-on': 'ubuntu-latest',
       'timeout-minutes': 2,
@@ -1045,7 +1073,7 @@ describe('Issue lifecycle workflow', () => {
     expect(preflightStep?.run).toContain('if [ -f .github/issue-management/selective-preflight.json ]; then')
     expect(preflightStep?.run).toContain('node .github/issue-management/policy.mjs pr-preflight')
     expect(preflightStep?.if).toBeUndefined()
-    expect(policyJob.if).toBeUndefined()
+    expect(policyJob.if).toBe("github.repository == 'deepseek-harness/deepseek-harness'")
     expect(validateStep?.if).toBe("${{ steps.preflight.outputs.legacy-automated != 'true' }}")
 
     expect(tokenStep).toMatchObject({

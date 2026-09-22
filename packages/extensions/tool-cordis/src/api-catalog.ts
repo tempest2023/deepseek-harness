@@ -1196,6 +1196,36 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'jev',
+    summary: 'The Jev service.',
+    description: 'The Jev service. It owns the configured backend, exposes the three bounded decisions to any consumer, and installs the capability wiring for whichever capabilities the configuration enables.',
+    methods: [
+      {
+        signature: 'readonly resolved: ResolvedConfig',
+        description: 'Fully resolved configuration.',
+        parameters: [],
+      },
+      {
+        signature: 'async routeModel(request: ModelRoutingRequest, signal?: AbortSignal): Promise<ModelRoutingDecision>',
+        description: 'Answer one model-routing question and publish the decision.',
+        parameters: [{ name: 'request', description: 'the routing question.' }, { name: 'signal', description: 'cancellation owned by the caller.' }],
+        returns: 'the routing decision.',
+      },
+      {
+        signature: 'async filterTools(request: ToolFilterRequest, signal?: AbortSignal): Promise<ToolFilterDecision>',
+        description: 'Answer one tool pre-filtering question and publish the decision.',
+        parameters: [{ name: 'request', description: 'the filtering question.' }, { name: 'signal', description: 'cancellation owned by the caller.' }],
+        returns: 'the filtering decision.',
+      },
+      {
+        signature: 'async judgePermission(request: PermissionRequest, signal?: AbortSignal): Promise<PermissionJudgment>',
+        description: 'Answer one permission question and publish the decision.',
+        parameters: [{ name: 'request', description: 'the permission question.' }, { name: 'signal', description: 'cancellation owned by the caller.' }],
+        returns: 'the permission judgment.',
+      },
+    ],
+  },
+  {
     key: 'jobs',
     summary: 'Abstract background job registry.',
     description: 'Abstract background job registry. Subclass, implement the abstract methods, and load the subclass as a plugin — it registers as `ctx.jobs` (one implementation per context; loading a second throws, which is cordis\' standard duplicate-service behavior).\n\nImplementations must honor these semantics:\n\n- Registrations outlive producer and controller fibers. Owner and service disposal cancel live work and await compliant producers; a throwing teardown cancel force-fails only the record. Teardown cancellation also marks the record reported, because a record its owner is being destroyed for has no reader left.\n- Owned-job access is fenced by the owner\'s session id. Ids are predictable, so authorization — not secrecy — is the boundary.\n- Settlement is first-wins: one terminal record, released waiters, and one round of contained listener notification, even against a late producer outcome. Completion is announced last, after the record is committed and every other observer of the settlement has seen it, because a reporter may open a model turn synchronously.\n- start refuses work while no attached job controller serves the spec\'s owner, so a producer cannot start work that owner cannot collect or stop. One registry serves every composition in the process, so this question — and completion-listener delivery — is owner-relative rather than process-wide: registrations made from an unscoped context serve every owner, and registrations made under an agent composition\'s scope serve exactly the agents composed under it.',
@@ -3713,6 +3743,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'reloads', description: 'Replaced plugins and their module locations.' }],
   },
   {
+    name: 'jev/decision',
+    mode: 'emit',
+    signature: '\'jev/decision\'(decision: JevDecision): void',
+    summary: 'One bounded Jev decision was made.',
+    description: 'One bounded Jev decision was made. Live-only and informational: nothing in the agent loop consumes it, so a listener failure cannot affect a turn, and the model never sees it.',
+    parameters: [{ name: 'decision', description: 'the decision record, including which capability asked, which backend answered, and the human-readable reason.' }],
+  },
+  {
     name: 'llm/adapters-updated',
     mode: 'emit',
     signature: '\'llm/adapters-updated\'(): void',
@@ -4897,6 +4935,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface InvokeRemoteRequest {\n    readonly namespace: string;\n    readonly method: string;\n    readonly args: Readonly<Record<string, unknown>>;\n    readonly signal?: AbortSignal;\n}',
   },
   {
+    name: 'JevAnswerSource',
+    declaration: 'export type JevAnswerSource = \'backend\' | \'local-fallback\';',
+  },
+  {
+    name: 'JevCapability',
+    declaration: 'export type JevCapability = \'model-router\' | \'tool-prefilter\' | \'permission\';',
+  },
+  {
+    name: 'JevDecision',
+    declaration: 'export interface JevDecision {\n    capability: JevCapability;\n    provider: string;\n    source: JevAnswerSource;\n    reason: string;\n    agentId?: string;\n    selection?: ModelRef;\n    keep?: string[];\n    outcome?: PermissionOutcome;\n}',
+  },
+  {
+    name: 'JevRole',
+    declaration: 'export type JevRole = \'orchestration\' | \'execution\';',
+  },
+  {
     name: 'JobDoneListener',
     declaration: 'export type JobDoneListener = (snapshot: JobSnapshot, owner: Agent | undefined) => void | PromiseLike<void>;',
   },
@@ -5189,6 +5243,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface MessageSourceMap {\n    user: {\n        kind: \'user\';\n    };\n    plugin: {\n        kind: \'plugin\';\n        plugin: string;\n    } & ContextFormed;\n    model: ModelMessageSource;\n    tool: ToolMessageSource;\n}',
   },
   {
+    name: 'ModelCandidate',
+    declaration: 'export interface ModelCandidate extends ModelRef {\n    name?: string;\n}',
+  },
+  {
     name: 'ModelCatalog',
     declaration: 'export interface ModelCatalog {\n    readonly default: ModelSelection;\n    readonly routableProviders: readonly string[];\n    readonly groups: readonly ModelProviderGroup[];\n    readonly failures: readonly ModelCatalogFailure[];\n}',
   },
@@ -5213,6 +5271,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ModelModalityMap {\n    text: \'text\';\n    image: \'image\';\n}',
   },
   {
+    name: 'ModelPreferenceRule',
+    declaration: 'export interface ModelPreferenceRule {\n    pattern: string;\n    role: JevRole | \'any\';\n}',
+  },
+  {
     name: 'ModelProviderGroup',
     declaration: 'export interface ModelProviderGroup {\n    readonly id: string;\n    readonly name: string;\n    readonly models: readonly ModelCatalogModel[];\n}',
   },
@@ -5223,6 +5285,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ModelReasoningEffort',
     declaration: 'export interface ModelReasoningEffort {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n}',
+  },
+  {
+    name: 'ModelRef',
+    declaration: 'export interface ModelRef {\n    provider: string;\n    model: string;\n}',
+  },
+  {
+    name: 'ModelRoutingDecision',
+    declaration: 'export interface ModelRoutingDecision {\n    selection?: ModelRef;\n    reason: string;\n}',
+  },
+  {
+    name: 'ModelRoutingPreferences',
+    declaration: 'export interface ModelRoutingPreferences {\n    orchestration?: ModelRef;\n    execution?: ModelRef;\n    prefer: readonly ModelPreferenceRule[];\n    avoid: readonly string[];\n}',
+  },
+  {
+    name: 'ModelRoutingRequest',
+    declaration: 'export interface ModelRoutingRequest {\n    role: JevRole;\n    current?: ModelRef;\n    candidates: readonly ModelCandidate[];\n    preferences: ModelRoutingPreferences;\n    bias: RoutingBias;\n}',
   },
   {
     name: 'ObjectJsonSchema',
@@ -5271,6 +5349,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PermissionCatalog',
     declaration: 'export interface PermissionCatalog {\n    options: PresetOption[];\n}',
+  },
+  {
+    name: 'PermissionClause',
+    declaration: 'export interface PermissionClause {\n    outcome: PermissionOutcome;\n    keywords: readonly string[];\n}',
+  },
+  {
+    name: 'PermissionJudgment',
+    declaration: 'export interface PermissionJudgment {\n    outcome: PermissionOutcome;\n    level: RiskLevel;\n    signals: readonly string[];\n    reason: string;\n}',
+  },
+  {
+    name: 'PermissionOutcome',
+    declaration: 'export type PermissionOutcome = \'allow\' | \'ask\' | \'deny\';',
+  },
+  {
+    name: 'PermissionProfile',
+    declaration: 'export type PermissionProfile = \'conservative\' | \'balanced\' | \'autonomous\';',
+  },
+  {
+    name: 'PermissionRequest',
+    declaration: 'export interface PermissionRequest {\n    toolName: string;\n    arguments: unknown;\n    profile: PermissionProfile;\n    riskRules: readonly RiskRule[];\n    clauses: readonly PermissionClause[];\n}',
   },
   {
     name: 'PluginChange',
@@ -5575,6 +5673,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly parentAgent?: Agent;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'RiskLevel',
+    declaration: 'export type RiskLevel = \'none\' | \'low\' | \'medium\' | \'high\' | \'critical\';',
+  },
+  {
+    name: 'RiskRule',
+    declaration: 'export interface RiskRule {\n    name: string;\n    level: RiskLevel;\n    patterns: string[];\n}',
+  },
+  {
+    name: 'RoutingBias',
+    declaration: 'export type RoutingBias = \'quality\' | \'cost\' | \'latency\';',
   },
   {
     name: 'RpcId',
@@ -6705,6 +6815,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ToolCallView = GenericCallView | TerminalCallView | DiffCallView;',
   },
   {
+    name: 'ToolCandidate',
+    declaration: 'export interface ToolCandidate {\n    name: string;\n    description: string;\n}',
+  },
+  {
     name: 'ToolDefinition',
     declaration: 'export interface ToolDefinition extends ToolSchema {\n    readonly output: ToolOutputDefinition;\n    execute(args: unknown, exec: ToolRunContext): Promise<unknown>;\n    finalizeContent?(exec: Readonly<ToolExecution>, result: Readonly<ToolExecutionResult>): ContentBlock[] | undefined;\n    timeoutMs?: number;\n    isConcurrencySafe?(args: unknown): boolean;\n    presentCall?(args: unknown): ToolCallView | undefined;\n    presentResult?(args: unknown, result: ToolResult): ToolResultView | undefined;\n}',
   },
@@ -6747,6 +6861,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ToolFailure',
     declaration: 'export interface ToolFailure {\n    message: string;\n    info?: ToolErrorInfo;\n}',
+  },
+  {
+    name: 'ToolFilterDecision',
+    declaration: 'export interface ToolFilterDecision {\n    keep?: string[];\n    reason: string;\n}',
+  },
+  {
+    name: 'ToolFilterRequest',
+    declaration: 'export interface ToolFilterRequest {\n    task?: string;\n    tools: readonly ToolCandidate[];\n    alwaysKeep: readonly string[];\n    minToolsToFilter: number;\n    minRetained: number;\n    maxRemovalFraction: number;\n}',
   },
   {
     name: 'ToolGuard',

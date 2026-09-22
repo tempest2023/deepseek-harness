@@ -63,6 +63,7 @@ harness 由 `packages/` 下的 npm 包组装而成，按能力系列分组：会
 | [`plan/`](plan/README.zh.md) | Plan 协作状态，提供直接进入命令与经评审的退出 |
 | [`preset/`](preset/README.zh.md) | 由 preset `cordis.yml` 按会话组装 agent |
 | [`guard/`](guard/README.zh.md) | 循环卫生守卫：建议性重复调用提醒 + `tools/execute` 截止时间强制执行器 |
+| [`jev/`](jev/README.zh.md) | 可选的有限判断插件：模型路由、工具预筛选与基于上下文的权限判断 |
 | [`bundle/`](bundle/README.zh.md) | 可安装的 `dsh --profile` 补丁层 |
 | [`extensions/`](extensions/README.zh.md) | agent 运行时自修改：实时插件／服务检查与模型所写挂载／卸载 |
 | [`mcp/`](mcp/README.zh.md) | 将外部 Model Context Protocol 服务器的工具接入为原生工具 |
